@@ -24,6 +24,11 @@ let curCat        = 'All';
 let curSort       = 'Relevance';
 let _cartJustOpened = false;
 let _navDropdownOpen = false;
+let _navCloseTimeoutId = null;
+
+// Stagger timing for the dropdown open/close cascade.
+const NAV_STAGGER_DELAY = 70;   // ms between each item's animation start
+const NAV_ITEM_DURATION = 420;  // ms — must be >= the transform transition duration in CSS
 
 // ─── Sanitize: escape HTML special chars ─────────────────────────────────────
 function escapeHTML(str) {
@@ -83,8 +88,6 @@ async function loadAuthStatus() {
         if (picEl && data.loggedIn && data.profilePic) {
             picEl.src = data.profilePic;
         }
-        // If not logged in, the default placeholder already set in the
-        // HTML (Gravatar mystery-person) stays as-is.
     } catch (err) {
         console.warn('Could not load auth status:', err.message);
         // Leave the default placeholder image in place — fails safe.
@@ -96,14 +99,17 @@ async function init() {
     VANTA.CLOUDS({
         el: '#canvas-container',
         mouseControls: true,
-        touchControls: true,
+        // PERF FIX: touchControls hijacks touchmove to reposition the 3D
+        // camera — on mobile this fights with page scrolling and is the
+        // most likely cause of scroll jank on the PDP. Disabled.
+        touchControls: false,
+        gyroControls: false,
         backgroundColor: 0x0,
         skyColor:        0x111b24,
         cloudColor:      0x3a4a5e,
         speed:           1.2,
     });
 
-    // Load in parallel — none depend on each other
     await Promise.all([loadProducts(), loadSoldCounts(), loadAuthStatus()]);
 
     buildFilterLists();
@@ -124,8 +130,14 @@ function toggleNavDropdown() {
 }
 
 function openNavDropdown() {
+    if (_navCloseTimeoutId) {
+        clearTimeout(_navCloseTimeoutId);
+        _navCloseTimeoutId = null;
+    }
+
     const btn      = document.getElementById('nav-logo-btn');
     const dropdown = document.getElementById('nav-dropdown');
+    const items    = Array.from(dropdown.querySelectorAll('.nav-dropdown-item'));
 
     _navDropdownOpen = true;
     btn.classList.remove('nav-btn-closing');
@@ -133,28 +145,57 @@ function openNavDropdown() {
     btn.setAttribute('aria-expanded', 'true');
 
     dropdown.classList.remove('acme-hidden');
-    // Force reflow so the opening animation class re-triggers reliably
-    void dropdown.offsetWidth;
     dropdown.classList.add('nav-dropdown-open');
+
+    // Reset every item to its hidden/pre-animation state first (covers the
+    // case where the dropdown is reopened before a previous close finished).
+    items.forEach((item) => {
+        item.classList.remove('nav-item-visible');
+        item.style.transitionDelay = '0ms';
+    });
+
+    // Force a reflow so the class removal above is committed before we
+    // start staggering the items back in — otherwise the browser can
+    // coalesce these style changes and skip the animation entirely.
+    void dropdown.offsetWidth;
+
+    // Top-to-bottom stagger: each item gets a progressively larger delay.
+    items.forEach((item, i) => {
+        item.style.transitionDelay = `${i * NAV_STAGGER_DELAY}ms`;
+        requestAnimationFrame(() => {
+            item.classList.add('nav-item-visible');
+        });
+    });
 }
 
 function closeNavDropdown() {
     const btn      = document.getElementById('nav-logo-btn');
     const dropdown = document.getElementById('nav-dropdown');
+    const items    = Array.from(dropdown.querySelectorAll('.nav-dropdown-item'));
 
     _navDropdownOpen = false;
     btn.classList.remove('nav-btn-open');
     btn.classList.add('nav-btn-closing');
     btn.setAttribute('aria-expanded', 'false');
 
+    // Bottom-to-top stagger on close: the LAST item gets delay 0 (closes
+    // first), the FIRST item gets the largest delay (closes last) —
+    // cascading back up the list.
+    const total = items.length;
+    items.forEach((item, i) => {
+        const reverseIndex = total - 1 - i;
+        item.style.transitionDelay = `${reverseIndex * NAV_STAGGER_DELAY}ms`;
+        item.classList.remove('nav-item-visible');
+    });
+
     dropdown.classList.remove('nav-dropdown-open');
 
-    // Wait for the closing animation to finish before hiding + clearing
-    // the closing class, so the border-reverse animation can play out.
-    setTimeout(() => {
+    const totalCascadeTime = (total - 1) * NAV_STAGGER_DELAY + NAV_ITEM_DURATION;
+    _navCloseTimeoutId = setTimeout(() => {
         dropdown.classList.add('acme-hidden');
         btn.classList.remove('nav-btn-closing');
-    }, 400);
+        _navCloseTimeoutId = null;
+    }, totalCascadeTime);
 }
 
 function setupNavDropdownOutsideClick() {
@@ -281,8 +322,6 @@ function buildFilterLists() {
     const cats  = ['All', ...categoriesFromProducts];
     const sorts = ['Relevance', 'Price: Low-High', 'Price: High-Low'];
 
-    // If the currently selected category no longer exists (e.g. products
-    // reloaded), reset back to "All" rather than filtering to an empty grid.
     if (!cats.includes(curCat)) curCat = 'All';
 
     document.getElementById('cat-filters').innerHTML = cats.map(c =>
@@ -314,7 +353,7 @@ function applyFilters() {
         const safeSlug  = escapeHTML(p.id);
         return `
             <div class="acme-card" onclick="openPDPBySlug('${safeSlug}', true)">
-                <img src="${safeImg}" alt="${safeName}">
+                <img src="${safeImg}" alt="${safeName}" loading="lazy" decoding="async">
                 <div style="display:flex; justify-content:space-between; margin-top:10px; align-items:center;">
                     <span style="font-size:0.75rem; font-weight:700; color:#fff;">${safeName}</span>
                     <span class="price-pill" style="margin:0; font-size:0.6rem; padding:3px 8px;">${safePrice}</span>
@@ -345,13 +384,15 @@ function renderPDP(product) {
     selectedSize  = activeP.sizes[0];
     selectedColor = activeP.colors[0];
 
+    // Main image loads eagerly (it's above the fold on the PDP) — everything
+    // else on this page (thumbnails, related marquee) is lazy-loaded below.
     document.getElementById('pdp-img').src = activeP.imgs[0];
     document.getElementById('pdp-title').textContent = activeP.name;
     document.getElementById('pdp-price').textContent = `$${activeP.pVal.toFixed(2)} USD`;
 
     document.getElementById('pdp-thumbs').innerHTML = activeP.imgs.map((img, idx) => {
         const safeImg = escapeHTML(img);
-        return `<img src="${safeImg}" class="thumb-img ${idx === 0 ? 'active' : ''}" onclick="setMainImg('${safeImg}', this)" alt="Product thumbnail">`;
+        return `<img src="${safeImg}" class="thumb-img ${idx === 0 ? 'active' : ''}" onclick="setMainImg('${safeImg}', this)" alt="Product thumbnail" loading="lazy" decoding="async">`;
     }).join('');
 
     const displaySizes  = activeP.sizes.filter(s => s !== 'NA');
@@ -431,7 +472,7 @@ function renderRelated() {
         const safeImg  = escapeHTML(p.imgs[0]);
         const safeName = escapeHTML(p.name);
         const safeSlug = escapeHTML(p.id);
-        return `<div class="marquee-item" onclick="openPDPBySlug('${safeSlug}', true)"><img src="${safeImg}" alt="${safeName}"></div>`;
+        return `<div class="marquee-item" onclick="openPDPBySlug('${safeSlug}', true)"><img src="${safeImg}" alt="${safeName}" loading="lazy" decoding="async"></div>`;
     }).join('');
     track.innerHTML = items + items;
 }
@@ -491,7 +532,7 @@ function setupSearch() {
             const safeSlug  = escapeHTML(p.id);
             return `
                 <div class="search-item" onclick="openPDPBySlug('${safeSlug}', true); hideDropdown();">
-                    <img src="${safeImg}" alt="${safeName}">
+                    <img src="${safeImg}" alt="${safeName}" loading="lazy" decoding="async">
                     <div>
                         <div style="font-weight:700; font-size:0.75rem;">${safeName}</div>
                         <div style="font-size:0.65rem;">${safePrice}</div>
@@ -549,7 +590,7 @@ function updateCart() {
         return `
             <div class="cart-item-row">
                 <div class="cart-item-thumb">
-                    <img src="${safeImg}" alt="${safeName}">
+                    <img src="${safeImg}" alt="${safeName}" loading="lazy" decoding="async">
                     <button class="cart-remove-btn" onclick="removeFromCart(${i.cId})" title="Remove item">✕</button>
                 </div>
                 <div class="cart-item-info">
