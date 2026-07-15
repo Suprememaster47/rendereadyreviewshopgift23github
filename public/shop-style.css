@@ -1,36 +1,40 @@
 :root { --accent: #fff; }
+
 body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #fff; overflow-x: hidden; }
+
 .acme-hidden { display: none !important; }
 
 /* ─── Background & Intro ──────────────────────────────────────────────────── */
 #canvas-container { position: fixed; inset: 0; z-index: -1; background: #000; }
+
 #intro-view {
     position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column;
     justify-content: center; align-items: center; background: rgba(0,0,0,0.8);
     transition: opacity 0.5s ease;
 }
+
 .intro-logo { font-size: 4rem; letter-spacing: 12px; font-weight: 900; margin-bottom: 40px; text-shadow: 0 0 20px #fff; }
+
 .intro-btn {
     background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.3);
     padding: 16px; width: 260px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase;
     cursor: pointer; transition: 0.4s; backdrop-filter: blur(8px);
 }
-.intro-btn:hover { background: #fff; color: #000; box-shadow: 0 0 30px #fff; transform: translateY(-3px); }
+
+.intro-btn:hover { background: #fff; color: #000; box-shadow: 0 0 30px #fff; transform: translate3d(0, -3px, 0); }
 
 /* ─── Navigation ─────────────────────────────────────────────────────────── */
 .acme-nav {
     border-bottom: 1px solid #eee; padding: 0.75rem 1.5rem;
     position: sticky; top: 0; background: #fff; z-index: 1000; color: #000;
 }
+
 .acme-nav-inner {
     max-width: 1400px; margin: 0 auto;
     display: flex; align-items: center; gap: 12px;
 }
 
 /* ─── Nav Logo Dropdown ──────────────────────────────────────────────────── */
-
-/* Registered custom property — this is what makes the angle transitionable
-   by the browser (smooth interpolation frame-by-frame), no @keyframes needed. */
 @property --nav-angle {
     syntax: '<angle>';
     inherits: false;
@@ -40,6 +44,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 .nav-logo-wrapper {
     position: relative;
     flex-shrink: 0;
+    z-index: 10;
 }
 
 .acme-logo-btn {
@@ -47,8 +52,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: #fff;
-    border: none;
+    background: linear-gradient(#fff, #fff) padding-box,
+                conic-gradient(from 0deg, #337ab7 var(--nav-angle), #d8d8d8 var(--nav-angle)) border-box;
+    border: 1.5px solid transparent;
     border-radius: 10px;
     padding: 8px 14px;
     cursor: pointer;
@@ -58,94 +64,41 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     font-size: 0.85rem;
     white-space: nowrap;
     font-family: inherit;
-    z-index: 1;
+    z-index: 2;
     --nav-angle: 0deg;
-}
-
-/*
-   ::before — the resting grey ring. Always present underneath, drawn as a
-   ring (not a filled box) via the padding + mask trick so only a 1.5px
-   border-shaped strip is visible.
-*/
-.acme-logo-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1.5px;
-    background: #d8d8d8;
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-            mask-composite: exclude;
-    z-index: -2;
-    pointer-events: none;
-}
-
-/*
-   ::after — the blue sweeping ring, drawn as a conic-gradient "pie" whose
-   fill angle is the --nav-angle custom property. Since --nav-angle is a
-   registered <angle>, transitioning it makes the browser smoothly animate
-   the fill from 0deg to 360deg (or back) frame-by-frame — a pure CSS
-   transition, no SVG, no keyframes.
-*/
-.acme-logo-btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1.5px;
-    background: conic-gradient(from 0deg, #337ab7 var(--nav-angle), transparent var(--nav-angle));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-            mask-composite: exclude;
-    z-index: -1;
-    pointer-events: none;
-    transition: --nav-angle 0.65s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Opening: 0deg → 360deg — blue sweeps clockwise until the ring is fully blue */
-.acme-logo-btn.nav-btn-open {
-    --nav-angle: 360deg;
-}
-.acme-logo-btn.nav-btn-open::after {
-    transition: --nav-angle 0.65s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Closing: 360deg → 0deg — the same arc retreats, visually erasing counter-clockwise */
-.acme-logo-btn.nav-btn-closing {
-    --nav-angle: 0deg;
-}
-.acme-logo-btn.nav-btn-closing::after {
     transition: --nav-angle 0.55s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dropdown panel — container itself no longer fades/slides as a whole;
-   each item inside animates individually (see .nav-dropdown-item below).
-   The container only toggles visibility + pointer-events. */
+.acme-logo-btn.nav-btn-open {
+    --nav-angle: 360deg;
+    transition: --nav-angle 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.acme-logo-btn.nav-btn-closing {
+    --nav-angle: 0deg;
+    transition: --nav-angle 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .nav-dropdown {
     position: absolute;
     top: calc(100% + 8px);
     left: 0;
     min-width: 220px;
-    background: #fff;
-    border: 1px solid #eee;
-    border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.18);
-    z-index: 1100;
-    overflow: hidden;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    z-index: 1;
+    overflow: visible;
     pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .nav-dropdown.nav-dropdown-open {
     pointer-events: auto;
 }
 
-/*
-   Each option box starts slid-up and invisible. JS assigns a per-item
-   transition-delay (staggered top-to-bottom on open, bottom-to-top on
-   close) then toggles .nav-item-visible — the actual "slide down and
-   lock into place" motion is this transform + the overshoot easing curve.
-*/
 .nav-dropdown-item {
     display: flex;
     align-items: center;
@@ -156,68 +109,58 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     color: #222;
     text-decoration: none;
     background: #fff;
-    border-bottom: 1px solid #f2f2f2;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     opacity: 0;
-    transform: translateY(-16px);
+    /* GPU PERFORMANCE FLAGS */
+    transform: translate3d(0, calc(-100% - 12px), 0); 
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+
     transition:
-        transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
-        opacity 0.32s ease,
-        background 0.15s ease,
-        padding-left 0.15s ease;
+        transform 0.48s cubic-bezier(0.25, 1, 0.5, 1) var(--delay, 0s),
+        opacity 0.38s ease var(--delay, 0s),
+        background 0.15s ease 0s,
+        padding-left 0.15s ease 0s,
+        box-shadow 0.15s ease 0s;
 }
-.nav-dropdown-item:last-child { border-bottom: none; }
 
 .nav-dropdown-item.nav-item-visible {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
 }
 
 .nav-dropdown-item:hover {
     background: #f7f9fc;
     padding-left: 20px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 
-.nav-item-icon {
-    font-size: 1rem;
-    width: 20px;
-    text-align: center;
-    flex-shrink: 0;
-}
+.nav-item-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+.nav-account-item { align-items: center; }
+.nav-profile-pic { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #ddd; }
 
-.nav-account-item {
-    align-items: center;
-}
+/* ─── Staggered Delays & Stacking order ──────────────────────────────────── */
+.nav-dropdown-item:nth-child(1) { z-index: 10; --delay: 0.36s; }
+.nav-dropdown-item:nth-child(2) { z-index: 9;  --delay: 0.24s; }
+.nav-dropdown-item:nth-child(3) { z-index: 8;  --delay: 0.12s; }
+.nav-dropdown-item:nth-child(4) { z-index: 7;  --delay: 0.00s; }
+.nav-dropdown-item:nth-child(5) { z-index: 6;  --delay: 0.00s; }
+.nav-dropdown-item:nth-child(6) { z-index: 5;  --delay: 0.00s; }
 
-.nav-profile-pic {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-    border: 1px solid #ddd;
-}
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(1) { --delay: 0.00s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(2) { --delay: 0.12s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(3) { --delay: 0.24s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(4) { --delay: 0.36s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(5) { --delay: 0.48s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(6) { --delay: 0.60s; }
 
-/* Logo — never shrinks, never clips */
-.acme-logo-text {
-    white-space: nowrap;
-}
-
-/* Search — fills the middle but can shrink to near-zero so cart is never pushed off */
-.search-wrapper {
-    position: relative;
-    flex: 1 1 0;   /* grow and shrink freely */
-    min-width: 0;  /* allows shrinking below content width */
-}
-.acme-search-input {
-    width: 100%; padding: 8px 12px; box-sizing: border-box;
-    border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 0.85rem;
-}
-
-/* Cart — never shrinks, always fully visible */
-.cart-label {
-    white-space: nowrap; flex-shrink: 0;
-    cursor: pointer; font-weight: 900; font-size: 0.9rem;
-}
+.acme-logo-text { white-space: nowrap; }
+.search-wrapper { position: relative; flex: 1 1 0; min-width: 0; }
+.acme-search-input { width: 100%; padding: 8px 12px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 0.85rem; }
+.cart-label { white-space: nowrap; flex-shrink: 0; cursor: pointer; font-weight: 900; font-size: 0.9rem; }
 
 /* ─── Search Dropdown ────────────────────────────────────────────────────── */
 .search-results-dropdown {
@@ -246,27 +189,30 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 
 .acme-card {
     background: rgba(0,0,0,0.8); border: 1px solid #333; border-radius: 12px; padding: 12px;
-    cursor: pointer; opacity: 0; transform: translateY(30px);
+    cursor: pointer; opacity: 0; 
+    /* GPU PERFORMANCE FLAGS */
+    transform: translate3d(0, 30px, 0);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
     transition: border-color 0.3s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    /* PERF: isolates each card's layout/paint so scrolling doesn't force
-       the browser to re-measure the whole grid on every frame. */
     contain: content;
 }
-.acme-card:hover { border-color: #fff; transform: translateY(-10px); }
+.acme-card:hover { border-color: #fff; transform: translate3d(0, -10px, 0); }
 .acme-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 6px; }
 .fade-up-active { animation: fadeUp 0.6s ease forwards; }
-@keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { to { opacity: 1; transform: translate3d(0, 0, 0); } }
 
 /* ─── PDP Transition Animations ─────────────────────────────────────────── */
 #pdp-view.pdp-enter { animation: pdpSlideIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 @keyframes pdpSlideIn {
-    from { opacity: 0; transform: translateY(24px) scale(0.98); }
-    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+    from { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.98); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0)    scale(1);    }
 }
 #shop-home.pdp-exit { animation: shopFadeOut 0.2s ease forwards; }
 @keyframes shopFadeOut {
-    from { opacity: 1; transform: translateY(0); }
-    to   { opacity: 0; transform: translateY(-12px); }
+    from { opacity: 1; transform: translate3d(0, 0, 0); }
+    to   { opacity: 0; transform: translate3d(0, -12px, 0); }
 }
 
 /* ─── PDP Layout ─────────────────────────────────────────────────────────── */
@@ -311,8 +257,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 .marquee-container { width: 100%; overflow: hidden; margin-top: 20px; padding-bottom: 40px; }
 .marquee-track {
     display: flex; gap: 15px; animation: scrollLeft 30s linear infinite; width: max-content;
-    /* PERF: promotes the scrolling track to its own GPU layer so its
-       continuous animation doesn't repaint the rest of the page every frame. */
+    /* GPU PERFORMANCE FLAGS */
     will-change: transform;
 }
 @keyframes scrollLeft { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
@@ -325,8 +270,18 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 .marquee-item img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ─── Cart Drawer ────────────────────────────────────────────────────────── */
-.cart-drawer { position: fixed; right: 0; top: 0; height: 100%; width: 350px; max-width: 100%; background: #fff; color: #000; z-index: 5000; transform: translateX(100%); transition: 0.4s; padding: 30px; display: flex; flex-direction: column; box-sizing: border-box; }
-.cart-drawer.open { transform: translateX(0); }
+.cart-drawer { 
+    position: fixed; right: 0; top: 0; height: 100%; width: 350px; max-width: 100%; 
+    background: #fff; color: #000; z-index: 5000; 
+    /* GPU PERFORMANCE FLAGS */
+    transform: translate3d(100%, 0, 0); 
+    will-change: transform; 
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+    padding: 30px; display: flex; flex-direction: column; box-sizing: border-box; 
+}
+.cart-drawer.open { transform: translate3d(0, 0, 0); }
 
 /* ─── Cart Item Row ───────────────────────────────────────────────────────── */
 .cart-item-row { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; }
@@ -356,34 +311,27 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 
 /* ─── Responsive Breakpoints ─────────────────────────────────────────────── */
 
-/* Tablet: 3 columns between 700px and 1024px */
 @media (max-width: 1024px) and (min-width: 701px) {
     .acme-landing-grid {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
-/* Mobile: exactly 2 columns at 700px and below */
 @media (max-width: 700px) {
     .acme-landing-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 0.75rem;
     }
 
-    /* Single-column PDP on small screens */
     .acme-pdp-main { grid-template-columns: 1fr; }
     .acme-details { padding-left: 0; padding-right: 0; }
 
-    /* Tighter nav padding on mobile */
     .acme-nav { padding: 0.6rem 0.75rem; }
     .acme-nav-inner { gap: 8px; }
     .cart-label { font-size: 0.78rem; }
 
-    /* Slightly smaller card text on mobile */
     .acme-card { padding: 8px; }
 
-    /* Nav dropdown: shrink logo button text and dropdown width so it never
-       causes horizontal overflow, and keep the panel comfortably tappable. */
     .acme-logo-btn {
         font-size: 0.68rem;
         padding: 7px 10px;
@@ -397,18 +345,15 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     }
 
     .nav-dropdown-item {
-        padding: 14px 16px; /* larger touch target on mobile */
+        padding: 14px 16px;
         font-size: 0.9rem;
-        transform: translateY(-10px); /* slightly shorter slide distance on small screens */
     }
 
     .nav-dropdown-item:hover {
-        padding-left: 16px; /* disable the desktop hover-shift on touch devices */
+        padding-left: 16px;
     }
 }
 
-/* Very small phones: logo text can wrap to two lines gracefully instead
-   of forcing horizontal scroll */
 @media (max-width: 420px) {
     .acme-logo-text {
         white-space: normal;
