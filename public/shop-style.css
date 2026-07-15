@@ -29,11 +29,12 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 
 /* ─── Nav Logo Dropdown ──────────────────────────────────────────────────── */
 
-/* Animatable custom property for the rotating gradient border */
+/* Registered custom property — this is what makes the angle transitionable
+   by the browser (smooth interpolation frame-by-frame), no @keyframes needed. */
 @property --nav-angle {
     syntax: '<angle>';
-    initial-value: 0deg;
     inherits: false;
+    initial-value: 0deg;
 }
 
 .nav-logo-wrapper {
@@ -58,65 +59,69 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     white-space: nowrap;
     font-family: inherit;
     z-index: 1;
+    --nav-angle: 0deg;
 }
 
-/* Static light-grey border shown at rest, via box-shadow so it doesn't
-   fight with the animated conic-gradient border overlay below. */
-.acme-logo-btn {
-    box-shadow: 0 0 0 1.5px #ddd inset;
-    transition: box-shadow 0.25s ease;
-}
-.acme-logo-btn:hover {
-    box-shadow: 0 0 0 1.5px #bbb inset;
-}
-
-/* Animated conic-gradient "sweeping" border overlay, layered behind the
-   button so the button's own background covers the center, leaving only
-   a ring visible — this is what animates clockwise/counter-clockwise. */
+/*
+   ::before — the resting grey ring. Always present underneath, drawn as a
+   ring (not a filled box) via the padding + mask trick so only a 1.5px
+   border-shaped strip is visible.
+*/
 .acme-logo-btn::before {
     content: '';
     position: absolute;
-    inset: -2px;
-    border-radius: 12px;
-    padding: 2px;
-    background: conic-gradient(from var(--nav-angle), transparent, transparent);
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: #d8d8d8;
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    opacity: 0;
+            mask-composite: exclude;
+    z-index: -2;
+    pointer-events: none;
+}
+
+/*
+   ::after — the blue sweeping ring, drawn as a conic-gradient "pie" whose
+   fill angle is the --nav-angle custom property. Since --nav-angle is a
+   registered <angle>, transitioning it makes the browser smoothly animate
+   the fill from 0deg to 360deg (or back) frame-by-frame — a pure CSS
+   transition, no SVG, no keyframes.
+*/
+.acme-logo-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: conic-gradient(from 0deg, #337ab7 var(--nav-angle), transparent var(--nav-angle));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
     z-index: -1;
-    transition: opacity 0.2s ease;
+    pointer-events: none;
+    transition: --nav-angle 0.65s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.acme-logo-btn.nav-btn-open::before,
-.acme-logo-btn.nav-btn-closing::before {
-    opacity: 1;
-    background: conic-gradient(from var(--nav-angle), #5bc0de, #337ab7, #5bc0de);
-}
-
-.acme-logo-btn.nav-btn-open::before {
-    animation: navBorderClockwise 0.6s ease forwards;
-}
-
-.acme-logo-btn.nav-btn-closing::before {
-    animation: navBorderCounterClockwise 0.4s ease forwards;
-}
-
-@keyframes navBorderClockwise {
-    from { --nav-angle: 0deg; }
-    to   { --nav-angle: 360deg; }
-}
-
-@keyframes navBorderCounterClockwise {
-    from { --nav-angle: 360deg; }
-    to   { --nav-angle: 0deg; }
-}
-
+/* Opening: 0deg → 360deg — blue sweeps clockwise until the ring is fully blue */
 .acme-logo-btn.nav-btn-open {
-    box-shadow: 0 0 0 1.5px #337ab7 inset;
+    --nav-angle: 360deg;
+}
+.acme-logo-btn.nav-btn-open::after {
+    transition: --nav-angle 0.65s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dropdown panel */
+/* Closing: 360deg → 0deg — the same arc retreats, visually erasing counter-clockwise */
+.acme-logo-btn.nav-btn-closing {
+    --nav-angle: 0deg;
+}
+.acme-logo-btn.nav-btn-closing::after {
+    transition: --nav-angle 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dropdown panel — container itself no longer fades/slides as a whole;
+   each item inside animates individually (see .nav-dropdown-item below).
+   The container only toggles visibility + pointer-events. */
 .nav-dropdown {
     position: absolute;
     top: calc(100% + 8px);
@@ -128,18 +133,19 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     box-shadow: 0 12px 32px rgba(0,0,0,0.18);
     z-index: 1100;
     overflow: hidden;
-    opacity: 0;
-    transform: translateY(-8px);
-    transition: opacity 0.22s ease, transform 0.22s ease;
     pointer-events: none;
 }
 
 .nav-dropdown.nav-dropdown-open {
-    opacity: 1;
-    transform: translateY(0);
     pointer-events: auto;
 }
 
+/*
+   Each option box starts slid-up and invisible. JS assigns a per-item
+   transition-delay (staggered top-to-bottom on open, bottom-to-top on
+   close) then toggles .nav-item-visible — the actual "slide down and
+   lock into place" motion is this transform + the overshoot easing curve.
+*/
 .nav-dropdown-item {
     display: flex;
     align-items: center;
@@ -149,10 +155,22 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     font-weight: 600;
     color: #222;
     text-decoration: none;
+    background: #fff;
     border-bottom: 1px solid #f2f2f2;
-    transition: background 0.15s ease, padding-left 0.15s ease;
+    opacity: 0;
+    transform: translateY(-16px);
+    transition:
+        transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.32s ease,
+        background 0.15s ease,
+        padding-left 0.15s ease;
 }
 .nav-dropdown-item:last-child { border-bottom: none; }
+
+.nav-dropdown-item.nav-item-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
 
 .nav-dropdown-item:hover {
     background: #f7f9fc;
@@ -230,6 +248,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     background: rgba(0,0,0,0.8); border: 1px solid #333; border-radius: 12px; padding: 12px;
     cursor: pointer; opacity: 0; transform: translateY(30px);
     transition: border-color 0.3s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    /* PERF: isolates each card's layout/paint so scrolling doesn't force
+       the browser to re-measure the whole grid on every frame. */
+    contain: content;
 }
 .acme-card:hover { border-color: #fff; transform: translateY(-10px); }
 .acme-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 6px; }
@@ -288,9 +309,18 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 /* ─── Related Products Marquee ───────────────────────────────────────────── */
 .related-section-title { margin-top: 40px; font-size: 0.7rem; color: #555; text-transform: uppercase; letter-spacing: 3px; border-bottom: 1px solid #222; padding-bottom: 10px; }
 .marquee-container { width: 100%; overflow: hidden; margin-top: 20px; padding-bottom: 40px; }
-.marquee-track { display: flex; gap: 15px; animation: scrollLeft 30s linear infinite; width: max-content; }
-@keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.marquee-item { width: 160px; height: 160px; flex-shrink: 0; border-radius: 10px; overflow: hidden; border: 1px solid #333; cursor: pointer; transition: 0.3s; }
+.marquee-track {
+    display: flex; gap: 15px; animation: scrollLeft 30s linear infinite; width: max-content;
+    /* PERF: promotes the scrolling track to its own GPU layer so its
+       continuous animation doesn't repaint the rest of the page every frame. */
+    will-change: transform;
+}
+@keyframes scrollLeft { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
+.marquee-item {
+    width: 160px; height: 160px; flex-shrink: 0; border-radius: 10px; overflow: hidden;
+    border: 1px solid #333; cursor: pointer; transition: 0.3s;
+    contain: content;
+}
 .marquee-item:hover { border-color: #fff; }
 .marquee-item img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -369,6 +399,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     .nav-dropdown-item {
         padding: 14px 16px; /* larger touch target on mobile */
         font-size: 0.9rem;
+        transform: translateY(-10px); /* slightly shorter slide distance on small screens */
     }
 
     .nav-dropdown-item:hover {
