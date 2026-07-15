@@ -42,13 +42,18 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     flex-shrink: 0;
 }
 
+/* Optimized Button: Uses dual backgrounds (padding-box + border-box) to create 
+   the dynamic drawing border. This replaces buggy pseudo-elements, making the 
+   clockwise and counter-clockwise sweeps 100% reliable across all modern browsers.
+*/
 .acme-logo-btn {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: #fff;
-    border: none;
+    background: linear-gradient(#fff, #fff) padding-box, 
+                conic-gradient(from 0deg, #337ab7 var(--nav-angle), #d8d8d8 var(--nav-angle)) border-box;
+    border: 1.5px solid transparent;
     border-radius: 10px;
     padding: 8px 14px;
     cursor: pointer;
@@ -60,80 +65,38 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     font-family: inherit;
     z-index: 1;
     --nav-angle: 0deg;
-}
-
-/*
-   ::before — the resting grey ring. Always present underneath, drawn as a
-   ring (not a filled box) via the padding + mask trick so only a 1.5px
-   border-shaped strip is visible.
-*/
-.acme-logo-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1.5px;
-    background: #d8d8d8;
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-            mask-composite: exclude;
-    z-index: -2;
-    pointer-events: none;
-}
-
-/*
-   ::after — the blue sweeping ring, drawn as a conic-gradient "pie" whose
-   fill angle is the --nav-angle custom property. Since --nav-angle is a
-   registered <angle>, transitioning it makes the browser smoothly animate
-   the fill from 0deg to 360deg (or back) frame-by-frame — a pure CSS
-   transition, no SVG, no keyframes.
-*/
-.acme-logo-btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1.5px;
-    background: conic-gradient(from 0deg, #337ab7 var(--nav-angle), transparent var(--nav-angle));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-            mask-composite: exclude;
-    z-index: -1;
-    pointer-events: none;
-    transition: --nav-angle 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: --nav-angle 0.55s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Opening: 0deg → 360deg — blue sweeps clockwise until the ring is fully blue */
 .acme-logo-btn.nav-btn-open {
     --nav-angle: 360deg;
-}
-.acme-logo-btn.nav-btn-open::after {
     transition: --nav-angle 0.65s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Closing: 360deg → 0deg — the same arc retreats, visually erasing counter-clockwise */
 .acme-logo-btn.nav-btn-closing {
     --nav-angle: 0deg;
-}
-.acme-logo-btn.nav-btn-closing::after {
     transition: --nav-angle 0.55s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dropdown panel — container itself no longer fades/slides as a whole;
-   each item inside animates individually (see .nav-dropdown-item below).
-   The container only toggles visibility + pointer-events. */
+/* Dropdown Panel Container: Completely transparent with no borders or shadows. 
+   Overflow is set to visible so child component drop shadows are never clipped.
+*/
 .nav-dropdown {
     position: absolute;
     top: calc(100% + 8px);
     left: 0;
     min-width: 220px;
-    background: #fff;
-    border: 1px solid #eee;
-    border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+    background: transparent;
+    border: none;
+    box-shadow: none;
     z-index: 1100;
-    overflow: hidden;
+    overflow: visible;
     pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Visual spacing between the cascading boxes */
 }
 
 .nav-dropdown.nav-dropdown-open {
@@ -141,10 +104,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 }
 
 /*
-   Each option box starts slid-up and invisible. JS assigns a per-item
-   transition-delay (staggered top-to-bottom on open, bottom-to-top on
-   close) then toggles .nav-item-visible — the actual "slide down and
-   lock into place" motion is this transform + the overshoot easing curve.
+   Dropdown Option Boxes: Each item is modeled as a premium self-contained box.
+   Uses a custom CSS variable `--delay` to control entrance/exit staggering 
+   without introducing any input lag to hover effects.
 */
 .nav-dropdown-item {
     display: flex;
@@ -156,16 +118,18 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     color: #222;
     text-decoration: none;
     background: #fff;
-    border-bottom: 1px solid #f2f2f2;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     opacity: 0;
-    transform: translateY(-16px);
+    transform: translateY(-20px);
     transition:
-        transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
-        opacity 0.32s ease,
-        background 0.15s ease,
-        padding-left 0.15s ease;
+        transform 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) var(--delay, 0s),
+        opacity 0.42s ease var(--delay, 0s),
+        background 0.15s ease 0s,
+        padding-left 0.15s ease 0s,
+        box-shadow 0.15s ease 0s;
 }
-.nav-dropdown-item:last-child { border-bottom: none; }
 
 .nav-dropdown-item.nav-item-visible {
     opacity: 1;
@@ -175,6 +139,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 .nav-dropdown-item:hover {
     background: #f7f9fc;
     padding-left: 20px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 
 .nav-item-icon {
@@ -196,6 +161,29 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     flex-shrink: 0;
     border: 1px solid #ddd;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Staggered Animation Timing Controls
+   - When OPENING (.nav-dropdown-open), elements cascade beautifully from TOP to BOTTOM.
+   - When CLOSING (default), elements retract in REVERSE from BOTTOM to TOP.
+─────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Default / Closing State Delays (Bottom-to-Top Reverse Exit) */
+.nav-dropdown-item:nth-child(1) { --delay: 0.36s; }
+.nav-dropdown-item:nth-child(2) { --delay: 0.24s; }
+.nav-dropdown-item:nth-child(3) { --delay: 0.12s; }
+.nav-dropdown-item:nth-child(4) { --delay: 0.00s; }
+.nav-dropdown-item:nth-child(5) { --delay: 0.00s; }
+.nav-dropdown-item:nth-child(6) { --delay: 0.00s; }
+
+/* 2. Open State Delays (Top-to-Bottom Cascade Entrance) */
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(1) { --delay: 0.00s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(2) { --delay: 0.12s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(3) { --delay: 0.24s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(4) { --delay: 0.36s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(5) { --delay: 0.48s; }
+.nav-dropdown.nav-dropdown-open .nav-dropdown-item:nth-child(6) { --delay: 0.60s; }
+
 
 /* Logo — never shrinks, never clips */
 .acme-logo-text {
@@ -396,6 +384,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
         left: 0;
     }
 
+    /* Staggered variables map perfectly to mobile too! */
     .nav-dropdown-item {
         padding: 14px 16px; /* larger touch target on mobile */
         font-size: 0.9rem;
