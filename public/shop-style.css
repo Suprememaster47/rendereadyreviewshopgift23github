@@ -102,7 +102,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 
 /*
    Each option box starts completely tucked behind the element directly above it.
-   It animates downwards to y: 0 using a smooth custom ease.
+   Optimized to leverage GPU layer caching to eliminate closing lag on mobile devices.
 */
 .nav-dropdown-item {
     display: flex;
@@ -118,10 +118,19 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     opacity: 0;
-    transform: translateY(var(--translate-closed, calc(-100% - 12px))); /* Dynamic cumulative shift: height + gap space */
+    
+    /* ─── GPU ACCELERATION INJECTED HERE ─── */
+    /* 1. Force 3D hardware matrix translation instead of 2D translation */
+    transform: translate3d(0, var(--translate-closed, calc(-100% - 12px)), 0); 
+    /* 2. Hint mobile rendering engine to cache this layer in the GPU */
+    will-change: transform, opacity; 
+    /* 3. Prevent micro-stuttering/flickering in mobile Safari/Chrome */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    
     transition:
         transform 0.48s cubic-bezier(0.25, 1, 0.5, 1) var(--delay, 0s),
-        opacity 0.48s cubic-bezier(0.25, 1, 0.5, 1) var(--delay, 0s), /* Matched curve & speed to create a gorgeous fade-while-stacking effect */
+        opacity 0.48s cubic-bezier(0.25, 1, 0.5, 1) var(--delay, 0s),
         background 0.15s ease 0s,
         padding-left 0.15s ease 0s,
         box-shadow 0.15s ease 0s;
@@ -129,7 +138,8 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #ff
 
 .nav-dropdown-item.nav-item-visible {
     opacity: 1;
-    transform: translateY(0);
+    /* Translate to zero using GPU layer */
+    transform: translate3d(0, 0, 0);
 }
 
 .nav-dropdown-item:hover {
